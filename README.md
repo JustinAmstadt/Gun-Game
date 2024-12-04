@@ -120,7 +120,7 @@ Team 1’s starting position is on the top left while team 2’s is on the botto
 
 * is a normal tile that can be moved to
 
-# is a wall that cannot be moved onto or shot through
+* is a wall that cannot be moved onto or shot through
 
 When a team successfully shoots the other team’s player, the shot player will show up as an X
 
