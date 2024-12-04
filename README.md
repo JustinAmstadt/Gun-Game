@@ -69,10 +69,10 @@ I specifically am using v20.12.2
 
 ```bash
 RPC_URL=https://fullnode.testnet.sui.io:443
-NFT_PACKAGE_ID= # Ask me
+NFT_PACKAGE_ID= # Publish the move package
 
 GAME_MASTER_CAP= # For contract publisher only. A normal user doesn't need access to this object
-GAME_OBJECT= # Ask me
+GAME_OBJECT= # Given to the address that publishes the package
 
 # These can both be the same key, but the difference is the first one is the sponsor key and the second one is one that is actually registered in the game
 SECRET_KEY= 
