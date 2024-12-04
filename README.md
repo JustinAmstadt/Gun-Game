@@ -44,13 +44,6 @@ sui keytool export --key-identity main-key
 
 The private key should start with suiprivkey…
 
-## Code Location
-
-It is currently a PR right now:
-https://github.com/Parasol-App/parasol-sui/pull/32
-
-Find the code in parasol-sui/examples/gun-game
-
 ## Node Version
 
 Install nvm:
