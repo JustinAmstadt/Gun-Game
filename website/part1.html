@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gun Game: An Example in Sui On Chain Games Part 1</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            color: #333;
+            background-color: #f9f9f9;
+        }
+
+        header {
+            background: #007bff;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 2.5rem;
+        }
+
+        main {
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        h2 {
+            color: #007bff;
+            margin-top: 30px;
+        }
+
+        p {
+            margin: 15px 0;
+        }
+
+        a {
+            color: #007bff;
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        ul {
+            margin: 15px 0;
+            padding-left: 20px;
+        }
+
+        li {
+            margin: 5px 0;
+        }
+
+        pre {
+            background: #f4f4f4;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            font-size: 0.95rem;
+        }
+
+        code {
+            font-family: "Courier New", Courier, monospace;
+            color: #d6336c;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 30px;
+            color: #666;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Gun Game: An Example in Sui On Chain Games Part 1</h1>
+    </header>
+    <main>
+        <section>
+            <p>As blockchain technology matures and new players emerge, one blockchain has really stuck out in the year of 2024: Sui. Emerging as a newer blockchain, Sui gives a <em>mind-opening</em> way of looking at and using blockchains, and is a complete game-changer for game developers who wish to implement a game completely on-chain.</p>
+        </section>
+
+        <section>
+            <h2>Why Would I Want to Make a Game on Sui Anyways?</h2>
+            <p>As many developers know, managing a server on the backend can be a lot of work as your game/tool grows in popularity. Additionally, as long as the blockchain is secure, your game is secure with no concern for hackers. The best part though? Your game will last forever with <strong>no management required</strong>! While you may be convinced on why you would use blockchain for game development, you may still be wondering what's special about Sui. I'll give that answer to you in one word: <strong>objects</strong>.</p>
+            <p>Sui programming revolves around objects. It is very easy to make objects and wallets can own objects. These objects can be <em>anything</em>, including NFTs, game objects and more! Anything from game states to in-game items can all use Sui's object system, making it a <strong>much more robust system for games.</strong></p>
+            <p>If you still have questions such as to how <em>exactly</em> Sui is good for games and more importantly, <strong>how to make something in Sui</strong>, then look no further!</p>
+        </section>
+
+        <section>
+            <h2>The Goal</h2>
+            <p>My goal over these next few articles is to show you how to build a game starting from zero prior experience in Sui to a full-blown game on the testnet. I will focus <em>only</em> on <strong>Mac</strong> and <strong>Linux</strong> users, but it is important to note that Sui <strong>does support Windows users</strong>.</p>
+            <p>Here is the roadmap:</p>
+            <ul>
+                <li>Setting up your environment</li>
+                <li>Making the game state in Move</li>
+                <li>Making the game logic in Move</li>
+                <li>Testing the game</li>
+                <li>Writing Typescript code to interface with the blockchain</li>
+            </ul>
+        </section>
+
+        <section>
+            <h2>Let's Get Started with Setting Up Your Environment!</h2>
+            <p>It is important to note that I will be giving my own guide for setup, but I will also be linking the <a href="https://docs.sui.io/guides">official guide</a> along the way. My guide is a streamlined, easy-to-understand version of the existing docs, but please refer to them if you are having issues.</p>
+            <p>If you are already familiar with Sui, you can skip this part and move onto the next part.</p>
+        </section>
+
+        <section>
+            <h2>How to Install the Sui CLI</h2>
+            <p>If you already have brew installed on your system, just run this command:</p>
+            <pre><code>brew install sui</code></pre>
+
+            <p>If not, <strong>here is how to install brew</strong>:</p>
+            <p>For mac users use this:</p>
+            <pre><code>/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' &gt;&gt; ~/.zshrc
+source ~/.zshrc</code></pre>
+
+            <p>For linux users use this:</p>
+            <pre><code>sudo apt update &amp;&amp; sudo apt upgrade -y
+sudo apt install build-essential curl file git -y
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' &gt;&gt;~/.bashrc
+source ~/.bashrc</code></pre>
+
+            <p>Now, run this to test that you installed correctly:</p>
+            <pre><code>brew --version</code></pre>
+
+            <p>You should get something similar to this:</p>
+            <pre><code>Homebrew 4.4.14</code></pre>
+
+            <p>Now just run the above sui install command above.</p>
+            <p>Here is the <a href="https://docs.sui.io/guides/developer/getting-started/sui-install">installation page</a> in the Sui docs for those who need more information.</p>
+        </section>
+
+        <section>
+            <h2>Setting up the Network Environment and Keypair</h2>
+            <p>With a fresh install, just type this command and you will be prompted through the environment and keypair creation.</p>
+            <pre><code>sui client</code></pre>
+
+            <p>Sample Output:</p>
+            <pre><code>Config file ["/home/justin/.sui/sui_config/client.yaml"] doesn't exist, do you want to connect to a Sui Full node server [y/N]?y
+Sui Full node server URL (Defaults to Sui Testnet if not specified) :
+Select key scheme to generate keypair (0 for ed25519, 1 for secp256k1, 2: for secp256r1):
+0
+Generated new keypair and alias for address with scheme "ed25519" [Your keypair]
+Secret Recovery Phrase : [Your recovery phrase]
+Client for interacting with the Sui network</code></pre>
+
+            <p>Now we will test to make sure we did everything correctly:</p>
+            <pre><code>sui client envs</code></pre>
+            <p>Should return:</p>
+            <pre><code>╭─────────┬─────────────────────────────────────┬────────╮
+│ alias   │ url                                 │ active │
+├─────────┼─────────────────────────────────────┼────────┤
+│ testnet │ https://fullnode.testnet.sui.io:443 │ *      │
+╰─────────┴─────────────────────────────────────┴────────╯</code></pre>
+
+            <pre><code>sui client addresses</code></pre>
+            <p>Should return:</p>
+            <pre><code>╭────────────┬────────────────────────────────────────────────────────────────────┬────────────────╮
+│ alias      │ address                                                            │ active address │
+├────────────┼────────────────────────────────────────────────────────────────────┼────────────────┤
+│ ALIAS-NAME │ YOUR ADDRESS                                                       │ *              │
+╰────────────┴────────────────────────────────────────────────────────────────────┴────────────────╯</code></pre>
+
+            <p>This can also be seen in the <a href="https://docs.sui.io/guides/developer/getting-started/connect">official guide</a>.</p>
+        </section>
+
+        <section>
+            <h2>Conclusion</h2>
+            <p>With that, you should be set up for the next part in the series!</p>
+            <p>Developing on the Sui blockchain can feel challenging at first, but there are many powerful features that you will see in future parts that makes Sui a solid choice for game development!</p>
+        </section>
+    </main>
+</body>
+</html>
+

@@ -926,4 +926,79 @@ module gungame::gungame_tests{
 
         test_scenario::end(scenario_val); // End the scenario and give back scenario_val
     }
+
+    #[test, expected_failure(abort_code = ::gungame::game::EInvalidInput)]
+    fun test_invalid_move() {
+        let admin = @0xAD;
+        let player1 = @0x01;
+        let player2 = @0x02;
+
+        let team_1 = 0;
+        let team_2 = 1;
+
+        let playerName = string::utf8(b"PlayerName");
+
+        let mut scenario_val = test_scenario::begin(admin);
+        let scenario = &mut scenario_val;
+        {
+            game::init_for_testing(scenario.ctx());
+        };
+
+        test_scenario::next_tx(scenario, @0x0); // Must be this address or it fails
+        {
+            random::create_for_testing(scenario.ctx());
+        };
+
+        test_scenario::next_tx(scenario, admin);
+        {
+            let random = test_scenario::take_shared<Random>(scenario);
+            let gmCap = scenario.take_from_sender<GameMasterCap>();
+            game::make_game(&gmCap, 7, &random, scenario.ctx());
+            scenario.return_to_sender(gmCap);
+            test_scenario::return_shared<Random>(random);
+        };
+
+        test_scenario::next_tx(scenario, player1);
+        {
+            let mut game = test_scenario::take_shared<Game>(scenario);
+            game::join_game(&mut game, playerName, scenario.ctx());
+            test_scenario::return_shared<Game>(game);
+        };
+
+        test_scenario::next_tx(scenario, player2);
+        {
+            let mut game = test_scenario::take_shared<Game>(scenario);
+            game::join_game(&mut game, playerName, scenario.ctx());
+            test_scenario::return_shared<Game>(game);
+        };
+
+        test_scenario::next_tx(scenario, player1);
+        {
+            let mut game = test_scenario::take_shared<Game>(scenario);
+            let random = test_scenario::take_shared<Random>(scenario);
+            game::play_game(&mut game, MOVE_RIGHT, &random, scenario.ctx());
+            test_scenario::return_shared<Random>(random);
+            test_scenario::return_shared<Game>(game);
+        };
+
+        test_scenario::next_tx(scenario, player2);
+        {
+            let mut game = test_scenario::take_shared<Game>(scenario);
+            let random = test_scenario::take_shared<Random>(scenario);
+            game::play_game(&mut game, MOVE_RIGHT, &random, scenario.ctx());
+            test_scenario::return_shared<Random>(random);
+            test_scenario::return_shared<Game>(game);
+        };
+
+        test_scenario::next_tx(scenario, player1);
+        {
+            let mut game = test_scenario::take_shared<Game>(scenario);
+            let random = test_scenario::take_shared<Random>(scenario);
+            game::play_game(&mut game, 10, &random, scenario.ctx());
+            test_scenario::return_shared<Random>(random);
+            test_scenario::return_shared<Game>(game);
+        };
+
+        test_scenario::end(scenario_val); // End the scenario and give back scenario_val
+    }
 }

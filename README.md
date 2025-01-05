@@ -6,10 +6,10 @@ Install Sui: https://docs.sui.io/guides/developer/getting-started/sui-install
 
 Set environment to Testnet:
 
-If just starting out, make a new environment:
+If just starting out, make a new environment by typing:
 
-```jsx
-sui client new-env --alias testnet --rpc https://fullnode.testnet.sui.io:443
+```bash
+sui client
 ```
 
 If you already have it, switch to it. Use whatever alias you set for the testnet

@@ -175,8 +175,8 @@ module gungame::game {
         };
 
         // Generate players
-        *&mut grid[char1_y][char1_x] = 38; // 38 is the value for &
-        *&mut grid[char2_y][char2_x] = 38;
+        *&mut grid[char1_y][char1_x] = CHARACTER; // 38 is the value for &
+        *&mut grid[char2_y][char2_x] = CHARACTER;
 
         grid
     }
@@ -314,6 +314,17 @@ module gungame::game {
 
     entry fun play_game(game: &mut Game, player_choice: u64, r: &Random, _ctx: &mut TxContext) {
         assert!(vec_map::contains(&game.players, &_ctx.sender()), EPlayerNotInGame);
+        assert!(
+            player_choice == MOVE_LEFT || 
+            player_choice == MOVE_RIGHT || 
+            player_choice == MOVE_UP || 
+            player_choice == MOVE_DOWN ||
+            player_choice == SHOOT_LEFT ||
+            player_choice == SHOOT_RIGHT ||
+            player_choice == SHOOT_UP ||
+            player_choice == SHOOT_DOWN,
+            EInvalidInput
+        );
 
         if (game.reset_grid) {
             game.reset_grid = false;
@@ -325,10 +336,10 @@ module gungame::game {
         };
 
         let team = vec_map::get(&game.players, &_ctx.sender()).team;
-        let mut enemy_team = 0;
+        let mut enemy_team = TEAM_1;
 
-        if (team == 0) {
-            enemy_team = 1;
+        if (team == TEAM_1) {
+            enemy_team = TEAM_2;
         };
 
         game.teams[team].move_queue.insert<u64>(1, player_choice);
@@ -381,17 +392,7 @@ module gungame::game {
         } else if (player_choice == SHOOT_DOWN) {
             shoot_down(game, team, ctx);
         } else {
-            assert!(
-                player_choice == MOVE_LEFT || 
-                player_choice == MOVE_RIGHT || 
-                player_choice == MOVE_UP || 
-                player_choice == MOVE_DOWN ||
-                player_choice == SHOOT_LEFT ||
-                player_choice == SHOOT_RIGHT ||
-                player_choice == SHOOT_UP ||
-                player_choice == SHOOT_DOWN,
-                EInvalidInput
-                );
+            return
         };
     }
 
@@ -523,16 +524,10 @@ module gungame::game {
                 return
             };
         };
-
     }
 
     fun is_wall(game: &Game, x: u64, y: u64): bool {
         game.grid[y][x] == WALL
-    }
-
-    #[allow(unused_function)]
-    fun is_tile(game: &Game, x: u64, y: u64): bool {
-        game.grid[y][x] == TILE
     }
 
     fun is_character(game: &Game, x: u64, y: u64): bool {
@@ -542,6 +537,11 @@ module gungame::game {
     #[allow(unused_function)]
     fun is_x(game: &Game, x: u64, y: u64): bool {
         game.grid[y][x] == X
+    }
+
+    #[allow(unused_function)]
+    fun is_tile(game: &Game, x: u64, y: u64): bool {
+        game.grid[y][x] == TILE
     }
 
     #[test_only]
