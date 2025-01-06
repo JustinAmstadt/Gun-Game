@@ -5,7 +5,6 @@ module gungame::gungame_tests{
     use gungame::game::{Self, GameMasterCap, Game, GameResult};
     use sui::random::{Self, Random};
     use std::string;
-    use std::debug;
 
     const EPlayerInWrongTeam: u64 = 1;
     const EWrongPlayerCount: u64 = 2;
@@ -932,9 +931,6 @@ module gungame::gungame_tests{
         let admin = @0xAD;
         let player1 = @0x01;
         let player2 = @0x02;
-
-        let team_1 = 0;
-        let team_2 = 1;
 
         let playerName = string::utf8(b"PlayerName");
 

@@ -5,6 +5,7 @@ module gungame::gungame {
     use sui::random::{Self, Random};
     use sui::vec_map::{Self, VecMap};
     use sui::event;
+    use std::debug;
 
     // === Constants ===
 
@@ -16,6 +17,16 @@ module gungame::gungame {
 
     const TEAM_1: u64 = 0;
     const TEAM_2: u64 = 1;
+
+    const MOVE_LEFT: u64 = 0;
+    const MOVE_RIGHT: u64 = 1;
+    const MOVE_UP: u64 = 2;
+    const MOVE_DOWN: u64 = 3;
+
+    const SHOOT_LEFT: u64 = 4;
+    const SHOOT_RIGHT: u64 = 5;
+    const SHOOT_UP: u64 = 6;
+    const SHOOT_DOWN: u64 = 7;
 
     // === Structs ===
 
@@ -54,6 +65,19 @@ module gungame::gungame {
         team: u64 // The team this player was assigned to
     }
 
+    public struct GamePlayed has copy, drop {
+        playerName: string::String,
+        playerAddress: address,
+        player_choice: u64
+    }
+
+    // This is the actual NFT to be minted
+    public struct GameResult has key, store {
+        id: UID,
+        name: string::String,
+        message: string::String
+    }
+
     // === Events ===
 
     public struct PlayerJoined has copy, drop {
@@ -75,10 +99,18 @@ module gungame::gungame {
         team: u64
     }
 
+    public struct GameOutcomeMinted has copy, drop {
+        objectAddress: address,
+        playerName: string::String,
+        playerAddress: address
+    }
+
     // === Errors ===
 
     const EPlayerNotInGame: u64 = 0;
     const EPlayerAlreadyInGame: u64 = 1;
+    const EInvalidInput: u64 = 2;
+    const ETeamDoesNotExist : u64 = 3;
 
     // === Functions ===
 
@@ -295,7 +327,168 @@ module gungame::gungame {
         event::emit(event);
     }
 
+    fun mint_game_result(game: &mut Game, winning_team: u64, ctx: &mut TxContext) {
+        // Ensure that a valid winning_team is chosen
+        assert!(winning_team == TEAM_1 || winning_team == TEAM_2, ETeamDoesNotExist);
+
+        // Pop each player from the VecMap. This will take care of two things: Kicking each player after the game over and giving the player an NFT if they were on the winning team
+        while (!game.players.is_empty()) {
+            // Since this is a VecMap, we get both the key and value here, but we only use the value so "_" is added to the "key" variable
+            let (_key, player) = game.players.pop();
+
+            // Skip minting logic if the player was on the losing team
+            if (player.team != winning_team) {
+                continue
+            };
+
+            // Make the NFT object
+            let gameResult = GameResult {
+                id: object::new(ctx),
+                name: player.name,
+                message: string::utf8(b"You won the game!")
+            };
+
+            // Make the event
+            let event = GameOutcomeMinted {
+                objectAddress: object::id_to_address(&object::id(&gameResult)), // This gets the object id of the newly minted NFT. This is the value that can be looked on later
+                playerAddress: player.address,
+                playerName: player.name
+            };
+
+            // Emit the event
+            event::emit(event);
+
+            // Transfer the object to the player's address
+            transfer::public_transfer(gameResult, player.address);
+        }
+    }
+    
+    fun is_queue_empty(game: &Game, team: u64): bool {
+        game.teams[team].move_queue.priorities().is_empty()
+    }
+
+    // game: We are changing a value that game has, so it must be mut
+    fun empty_queues(game: &mut Game) {
+        while (!is_queue_empty(game, TEAM_1)) {
+            // Pop the value without using it
+            game.teams[TEAM_1].move_queue.pop_max<u64>();
+        };
+        while (!is_queue_empty(game, TEAM_2)) {
+            game.teams[TEAM_2].move_queue.pop_max<u64>();
+        };
+    }
+
+    // game: Must be &mut because player_action requires it to be
+    // player_choice: The integer that will be inserted into the move queue
+    // r: The Random variable that will be used if the game needs to reset
+    // ctx: The transaction context
+    entry fun play_game(game: &mut Game, player_choice: u64, r: &Random, _ctx: &mut TxContext) {
+        // An assert to make sure the player is in the game
+        assert!(vec_map::contains(&game.players, &_ctx.sender()), EPlayerNotInGame);
+
+        // An assert to make sure the move is valid. If an invalid move entered in the queue, it could break the game
+        assert!(
+            player_choice == MOVE_LEFT || 
+            player_choice == MOVE_RIGHT || 
+            player_choice == MOVE_UP || 
+            player_choice == MOVE_DOWN ||
+            player_choice == SHOOT_LEFT ||
+            player_choice == SHOOT_RIGHT ||
+            player_choice == SHOOT_UP ||
+            player_choice == SHOOT_DOWN,
+            EInvalidInput
+        );
+
+        // When a game over happens, the reset_grid value will be set to true and the whole game is reset
+        if (game.reset_grid) {
+            // Reset the reset_grid value to false
+            game.reset_grid = false;
+
+            // Make a new grid. This is where our Random variable is used. Even if someone tried to manipulate randomness in our game, it is low risk anyways since we are only using randomness to reposition walls. Better to follow guidelines though
+            game.grid = make_grid(game.grid_size, 0, 0, game.grid_size - 1, game.grid_size - 1, r, _ctx);
+
+            // Reset character positionings
+            vector::borrow_mut(&mut game.teams, TEAM_1).controllable_character.x = 0;
+            vector::borrow_mut(&mut game.teams, TEAM_1).controllable_character.y = 0;
+            vector::borrow_mut(&mut game.teams, TEAM_2).controllable_character.x = game.grid_size - 1;
+            vector::borrow_mut(&mut game.teams, TEAM_2).controllable_character.y = game.grid_size - 1;
+        };
+
+        // Look up the player in the VecMap to see which team they are on. "team" is an integer that will be used to index into the game.teams field
+        let team = vec_map::get(&game.players, &_ctx.sender()).team;
+
+        // Set the enemy team to a value, but make it mutable if we need to change it
+        let mut enemy_team = TEAM_1;
+
+        // If the team the player making a move is actually team 1, change the enemy team to team 2
+        if (team == TEAM_1) {
+            enemy_team = TEAM_2;
+        };
+
+        // Index into the game.teams vector to insert a move into the 
+        game.teams[team].move_queue.insert<u64>(1, player_choice);
+
+        // Since the game only progresses if both teams have a move queued, we return before any moves are played if the enemy team doesn't have a move queued yet
+        if (is_queue_empty(game, enemy_team)) {
+            return
+        };
+
+        // Get the next value of the queue from both teams. pop_max will return both the priority of the value it returns and the actual value stored. Since all priorities are the same for us, we use "_" to signify that we won't be using it
+        let (_priority_team, next_move_team) = game.teams[team].move_queue.pop_max<u64>();
+        let (_priority_enemy_team, next_move_enemy_team) = game.teams[enemy_team].move_queue.pop_max<u64>();
+
+        // Check to see if either team is shooting to use for logic later
+        let is_team_shoot = next_move_team >= SHOOT_LEFT;
+        let is_enemy_team_shoot = next_move_enemy_team >= SHOOT_LEFT;
+
+        // Make a new event
+        let event = GamePlayed {
+            playerName: game.players.get(&_ctx.sender()).name,
+            playerAddress: _ctx.sender(),
+            player_choice: player_choice
+        };
+
+        // Emit the event
+        event::emit(event);
+
+        // This logic determines who goes first based on whether or not a team is shooting or not. Always let the team that is moving go first if the other is shooting. If both teams are shooting then the move cancels and nothing happens
+        if (is_team_shoot && !is_enemy_team_shoot) {
+            player_action(game, enemy_team, next_move_enemy_team, _ctx);
+            player_action(game, team, next_move_team, _ctx);
+        } else if (is_enemy_team_shoot && !is_team_shoot) {
+            player_action(game, team, next_move_team, _ctx);
+            player_action(game, enemy_team, next_move_enemy_team,  _ctx);
+        } else if (!is_team_shoot && !is_enemy_team_shoot) {
+            player_action(game, team, next_move_team, _ctx);
+            player_action(game, enemy_team, next_move_enemy_team, _ctx);
+        }
+    }
+
+    // game: Must be &mut because all the functions that it is passed to requires it to be.
+    fun player_action(game: &mut Game, team: u64, player_choice: u64, ctx: &mut TxContext) {
+        if (player_choice == MOVE_LEFT) {
+            move_left(game, team);
+        } else if (player_choice == MOVE_RIGHT) {
+            move_right(game, team);
+        } else if (player_choice == MOVE_UP) {
+            move_up(game, team);
+        } else if (player_choice == MOVE_DOWN) {
+            move_down(game, team);
+        } else if (player_choice == SHOOT_LEFT) {
+            shoot_left(game, team, ctx);
+        } else if (player_choice == SHOOT_RIGHT) {
+            shoot_right(game, team, ctx);
+        } else if (player_choice == SHOOT_UP) {
+            shoot_up(game, team, ctx);
+        } else if (player_choice == SHOOT_DOWN) {
+            shoot_down(game, team, ctx);
+        };
+    }
+
     fun game_over(game: &mut Game, winning_team: u64, ctx: &mut TxContext) {
+        mint_game_result(game, winning_team, ctx);
+        game.reset_grid = true; // Used in the play_game function to check if the game needs to be reset
+        empty_queues(game);
     }
 
     fun move_left(game: &mut Game, team: u64) {
@@ -440,5 +633,121 @@ module gungame::gungame {
 
     fun is_character(game: &Game, x: u64, y: u64): bool {
         game.grid[y][x] == CHARACTER
+    }
+
+    #[allow(unused_function)]
+    fun is_x(game: &Game, x: u64, y: u64): bool {
+        game.grid[y][x] == X
+    }
+
+    #[allow(unused_function)]
+    fun is_tile(game: &Game, x: u64, y: u64): bool {
+        game.grid[y][x] == TILE
+    }
+
+    #[test_only]
+    public fun teleport_player(game: &mut Game, team: u64, x: u64, y: u64) {
+        let prevX = vector::borrow(&game.teams, team).controllable_character.x;
+        let prevY = vector::borrow(&game.teams, team).controllable_character.y;
+
+        vector::borrow_mut(&mut game.teams, team).controllable_character.x = x;
+        vector::borrow_mut(&mut game.teams, team).controllable_character.y = y;
+
+        if (!(prevX == x && prevY == y)) { // Don't replace with a tile if a character is already there
+            *&mut game.grid[y][x] = CHARACTER; // Change space to character space
+            *&mut game.grid[prevY][prevX] = TILE; // Change space to normal tile
+        }
+    }
+
+    #[test_only]
+    public fun print_grid(game: &mut Game) {
+        debug::print(&game.grid);
+    }
+
+    #[test_only]
+    public fun get_character_coords(game: &mut Game, team: u64): (u64, u64) {
+        let x = vector::borrow(&game.teams, team).controllable_character.x;
+        let y = vector::borrow(&game.teams, team).controllable_character.y;
+
+        (x, y)
+    }
+
+    #[test_only]
+    public fun public_is_wall(game: &mut Game, x: u64, y: u64): bool {
+        is_wall(game, x, y)
+    }
+
+    #[test_only]
+    public fun test_is_tile(game: &mut Game, x: u64, y: u64): bool {
+        is_tile(game, x, y)
+    }
+
+    #[test_only]
+    public fun test_is_x(game: &mut Game, x: u64, y: u64): bool {
+        is_x(game, x, y)
+    }
+
+    #[test_only]
+    // This is only used a specific test case!! Use teleport_player unless you are careful with updating variables
+    public fun test_is_character(game: &mut Game, x: u64, y: u64): bool {
+        is_character(game, x, y)
+    }
+
+    #[test_only]
+    public fun place_wall(game: &mut Game, x: u64, y: u64) {
+        *&mut game.grid[y][x] = WALL;
+    }
+
+    #[test_only]
+    public fun place_tile(game: &mut Game, x: u64, y: u64) {
+        *&mut game.grid[y][x] = TILE;
+    }
+
+    #[test_only]
+    public fun place_character(game: &mut Game, x: u64, y: u64) {
+        *&mut game.grid[y][x] = CHARACTER;
+    }
+
+    #[test_only]
+    public fun make_all_tiles(game: &mut Game) {
+        let mut y = 0;
+        let mut x = 0;
+
+        while (y < game.grid_size) {
+            while (x < game.grid_size) {
+                *&mut game.grid[y][x] = TILE;
+                x = x + 1;
+            };
+            y = y + 1;
+            x = 0
+        };
+    }
+
+    #[test_only]
+    public fun init_for_testing(ctx: &mut TxContext) {
+        init(ctx);
+    }
+
+    #[test_only]
+    public fun get_team(game: &Game, player: address): u64 {
+        vec_map::get(&game.players, &player).team
+    }
+
+    #[test_only]
+    public fun get_team_player_count(game: &Game): (u64, u64) {
+        let team1 = game.team1_player_count;
+        let team2 = game.team2_player_count;
+
+        (team1, team2)
+    }
+
+    #[test_only]
+    public fun test_mint_game_result(game: &mut Game, winningTeam: u64, ctx: &mut TxContext) {
+        mint_game_result(game, winningTeam, ctx);
+    }
+
+    #[test_only]
+    public fun test_player_action(game: &mut Game, team: u64, player_choice: u64, ctx: &mut TxContext) {
+        player_action(game, team, player_choice, ctx);
     }
 }

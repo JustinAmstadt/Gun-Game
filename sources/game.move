@@ -312,8 +312,8 @@ module gungame::game {
         };
     }
 
-    entry fun play_game(game: &mut Game, player_choice: u64, r: &Random, _ctx: &mut TxContext) {
-        assert!(vec_map::contains(&game.players, &_ctx.sender()), EPlayerNotInGame);
+    entry fun play_game(game: &mut Game, player_choice: u64, r: &Random, ctx: &mut TxContext) {
+        assert!(vec_map::contains(&game.players, &ctx.sender()), EPlayerNotInGame);
         assert!(
             player_choice == MOVE_LEFT || 
             player_choice == MOVE_RIGHT || 
@@ -328,14 +328,14 @@ module gungame::game {
 
         if (game.reset_grid) {
             game.reset_grid = false;
-            game.grid = make_grid(game.grid_size, 0, 0, game.grid_size - 1, game.grid_size - 1, r, _ctx);
+            game.grid = make_grid(game.grid_size, 0, 0, game.grid_size - 1, game.grid_size - 1, r, ctx);
             vector::borrow_mut(&mut game.teams, TEAM_1).controllable_character.x = 0;
             vector::borrow_mut(&mut game.teams, TEAM_1).controllable_character.y = 0;
             vector::borrow_mut(&mut game.teams, TEAM_2).controllable_character.x = game.grid_size - 1;
             vector::borrow_mut(&mut game.teams, TEAM_2).controllable_character.y = game.grid_size - 1;
         };
 
-        let team = vec_map::get(&game.players, &_ctx.sender()).team;
+        let team = vec_map::get(&game.players, &ctx.sender()).team;
         let mut enemy_team = TEAM_1;
 
         if (team == TEAM_1) {
@@ -351,26 +351,26 @@ module gungame::game {
         let (_priority_team, next_move_team) = game.teams[team].move_queue.pop_max<u64>();
         let (_priority_enemy_team, next_move_enemy_team) = game.teams[enemy_team].move_queue.pop_max<u64>();
 
-        let is_team_shoot = next_move_team > 3;
-        let is_enemy_team_shoot = next_move_enemy_team > 3;
+        let is_team_shoot = next_move_team >= SHOOT_LEFT;
+        let is_enemy_team_shoot = next_move_enemy_team >= SHOOT_LEFT;
 
         let event = GamePlayed {
-            playerName: game.players.get(&_ctx.sender()).name,
-            playerAddress: _ctx.sender(),
+            playerName: game.players.get(&ctx.sender()).name,
+            playerAddress: ctx.sender(),
             player_choice: player_choice
         };
 
         event::emit(event);
 
         if (is_team_shoot && !is_enemy_team_shoot) {
-            player_action(game, enemy_team, next_move_enemy_team, _ctx);
-            player_action(game, team, next_move_team, _ctx);
+            player_action(game, enemy_team, next_move_enemy_team, ctx);
+            player_action(game, team, next_move_team, ctx);
         } else if (is_enemy_team_shoot && !is_team_shoot) {
-            player_action(game, team, next_move_team, _ctx);
-            player_action(game, enemy_team, next_move_enemy_team,  _ctx);
+            player_action(game, team, next_move_team, ctx);
+            player_action(game, enemy_team, next_move_enemy_team,  ctx);
         } else if (!is_team_shoot && !is_enemy_team_shoot) {
-            player_action(game, team, next_move_team, _ctx);
-            player_action(game, enemy_team, next_move_enemy_team, _ctx);
+            player_action(game, team, next_move_team, ctx);
+            player_action(game, enemy_team, next_move_enemy_team, ctx);
         }
     }
 
@@ -391,8 +391,6 @@ module gungame::game {
             shoot_up(game, team, ctx);
         } else if (player_choice == SHOOT_DOWN) {
             shoot_down(game, team, ctx);
-        } else {
-            return
         };
     }
 

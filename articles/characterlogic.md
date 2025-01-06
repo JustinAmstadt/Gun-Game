@@ -24,6 +24,7 @@ This part will focus only on the character movement and we will give human playe
 
 Before we get into the main functions, let's add a couple of helper functions for increased readability.
 
+# Add is_tile and is_x here
 ```move 
 fun is_wall(game: &Game, x: u64, y: u64): bool {
     game.grid[y][x] == WALL
